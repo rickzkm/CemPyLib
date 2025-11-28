@@ -301,46 +301,45 @@ def plot_stream_analysis(df: pd.DataFrame, save_path: Optional[str] = None) -> s
         ax2.text(0.5, 0.5, "Magnitude data not available", 
                 horizontalalignment='center', verticalalignment='center')
     
-    # Plot 3: Average orbital elements by stream (radar chart)
+    # Plot 3: Average orbital elements by stream (bar chart)
     ax3 = axs[1, 0]
-    
+
     orbital_elements = ['_a', '_e', '_incl', '_q']
     available_elements = [col for col in orbital_elements if col in df.columns]
-    
+
     if len(available_elements) >= 3:
         # Calculate mean values for each stream and element
         means = df.groupby('_stream')[available_elements].mean()
         means = means.loc[top_streams[:5]]  # Use only top 5 for clarity
-        
-        # Normalize the data for radar chart
+
+        # Normalize the data for comparison
         normalized_means = means.copy()
         for col in normalized_means.columns:
-            normalized_means[col] = (normalized_means[col] - normalized_means[col].min()) / \
-                                   (normalized_means[col].max() - normalized_means[col].min())
-        
-        # Number of variables
-        N = len(available_elements)
-        
-        # Create angles for each variable
-        angles = [n / float(N) * 2 * np.pi for n in range(N)]
-        angles += angles[:1]  # Close the loop
-        
-        # Create radar chart
-        ax3.set_theta_offset(np.pi / 2)
-        ax3.set_theta_direction(-1)
-        ax3.set_thetagrids(np.degrees(angles[:-1]), available_elements)
-        
-        for stream in normalized_means.index:
-            values = normalized_means.loc[stream].values.flatten().tolist()
-            values += values[:1]  # Close the loop
-            ax3.plot(angles, values, label=stream)
-            ax3.fill(angles, values, alpha=0.1)
-        
+            col_min = normalized_means[col].min()
+            col_max = normalized_means[col].max()
+            if col_max - col_min > 0:
+                normalized_means[col] = (normalized_means[col] - col_min) / (col_max - col_min)
+            else:
+                normalized_means[col] = 0
+
+        # Create grouped bar chart
+        x = np.arange(len(normalized_means.index))
+        width = 0.2
+
+        for i, col in enumerate(available_elements):
+            offset = (i - len(available_elements)/2) * width
+            ax3.bar(x + offset, normalized_means[col], width, label=col)
+
+        ax3.set_xlabel('Meteor Stream')
+        ax3.set_ylabel('Normalized Value')
         ax3.set_title('Normalized Orbital Elements by Stream')
-        ax3.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))
+        ax3.set_xticks(x)
+        ax3.set_xticklabels(normalized_means.index, rotation=45, ha='right')
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
     else:
         ax3.axis('off')
-        ax3.text(0.5, 0.5, "Not enough orbital element data", 
+        ax3.text(0.5, 0.5, "Not enough orbital element data",
                 horizontalalignment='center', verticalalignment='center')
     
     # Plot 4: Scatter plot of stream activity over time (if date/time info available)
